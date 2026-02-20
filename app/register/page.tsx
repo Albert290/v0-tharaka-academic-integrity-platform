@@ -19,6 +19,8 @@ function RegisterForm() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
+  const [registrationNumber, setRegistrationNumber] = useState("")
+  const [phoneNumber, setPhoneNumber] = useState("")
   const [role, setRole] = useState<"student" | "lecturer">("student")
   const [loading, setLoading] = useState(false)
   const { register } = useAuth()
@@ -45,9 +47,20 @@ function RegisterForm() {
       return
     }
 
+    if (role === "student") {
+      if (!registrationNumber) {
+        toast.error("Registration number is required for students")
+        return
+      }
+      if (!phoneNumber) {
+        toast.error("Phone number is required for students")
+        return
+      }
+    }
+
     setLoading(true)
 
-    const result = await register(name, email, password, role)
+    const result = await register(name, email, password, role, registrationNumber, phoneNumber)
 
     if (result.success) {
       toast.success("Registration successful!")
@@ -123,6 +136,32 @@ function RegisterForm() {
               required
             />
           </div>
+          {role === "student" && (
+            <>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="registrationNumber">Registration Number</Label>
+                <Input
+                  id="registrationNumber"
+                  type="text"
+                  placeholder="e.g., TU/2024/001"
+                  value={registrationNumber}
+                  onChange={(e) => setRegistrationNumber(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="phoneNumber">Phone Number</Label>
+                <Input
+                  id="phoneNumber"
+                  type="tel"
+                  placeholder="e.g., +254 700 000 000"
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  required
+                />
+              </div>
+            </>
+          )}
           <div className="flex flex-col gap-2">
             <Label htmlFor="password">Password</Label>
             <Input

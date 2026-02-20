@@ -5,10 +5,14 @@ import bcrypt from "bcryptjs"
 
 export async function POST(request: Request) {
   try {
-    const { name, email, password, role } = await request.json()
+    const { name, email, password, role, registrationNumber, phoneNumber } = await request.json()
 
     if (!name || !email || !password || !role) {
       return NextResponse.json({ error: "All fields are required" }, { status: 400 })
+    }
+
+    if (role === "student" && (!registrationNumber || !phoneNumber)) {
+      return NextResponse.json({ error: "Registration number and phone number are required for students" }, { status: 400 })
     }
 
     if (!["student", "lecturer"].includes(role)) {
@@ -23,8 +27,8 @@ export async function POST(request: Request) {
     const passwordHash = await bcrypt.hash(password, 12)
 
     const result = await sql`
-      INSERT INTO users (name, email, password_hash, role)
-      VALUES (${name}, ${email}, ${passwordHash}, ${role})
+      INSERT INTO users (name, email, password_hash, role, registration_number, phone_number)
+      VALUES (${name}, ${email}, ${passwordHash}, ${role}, ${registrationNumber || null}, ${phoneNumber || null})
       RETURNING id, name, email, role
     `
 

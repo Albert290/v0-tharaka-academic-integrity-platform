@@ -27,6 +27,7 @@ interface AnalysisResult {
   indicators: Record<string, Indicator>
   video_name: string
   analyzed_at: string
+  reasoning?: string
 }
 
 export function DeepfakeAnalyzer() {
@@ -182,12 +183,12 @@ export function DeepfakeAnalyzer() {
           {analyzing && (
             <div className="mt-6 flex flex-col gap-2">
               <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Analyzing video...</span>
+                <span className="text-muted-foreground">Analyzing with Claude AI...</span>
                 <span className="font-medium text-foreground">{Math.round(progress)}%</span>
               </div>
               <Progress value={progress} className="h-2" />
               <p className="text-xs text-muted-foreground">
-                Running deepfake detection algorithms across multiple behavioral indicators
+                AI is analyzing video for lip sync, breathing patterns, micro-expressions, blinking, skin texture, and head pose
               </p>
             </div>
           )}
@@ -254,6 +255,14 @@ export function DeepfakeAnalyzer() {
                   : "This video shows signs of manipulation. Review the indicators below."}
               </p>
             </div>
+
+            {/* AI Reasoning (if available) */}
+            {result.reasoning && (
+              <div className="rounded-lg border border-border bg-muted/30 p-4">
+                <h3 className="mb-2 text-sm font-semibold text-foreground">AI Analysis</h3>
+                <p className="text-sm text-muted-foreground">{result.reasoning}</p>
+              </div>
+            )}
 
             {/* Indicator Breakdown */}
             <div className="flex flex-col gap-4">

@@ -2,6 +2,9 @@ import { NextResponse } from "next/server"
 import { sql } from "@/lib/db"
 import { getSession } from "@/lib/auth"
 
+export const runtime = 'nodejs'
+export const maxDuration = 60
+
 export async function POST(request: Request) {
   try {
     const session = await getSession()
@@ -52,7 +55,7 @@ export async function GET(request: Request) {
     if (role === "lecturer" && session.role === "lecturer") {
       submissions = await sql`
         SELECT s.id, s.title, s.file_type, s.submitted_at, s.ai_check_result, s.reviewed, s.file_url,
-               u.name as student_name, u.email as student_email
+               u.name as student_name, u.email as student_email, u.registration_number, u.phone_number
         FROM submissions s
         JOIN users u ON s.student_id = u.id
         WHERE s.lecturer_id = ${session.id}
