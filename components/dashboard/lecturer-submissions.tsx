@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useEffect } from "react"
+import { useState, useMemo } from "react"
 import useSWR from "swr"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -20,7 +20,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Progress } from "@/components/ui/progress"
-import { Alert, AlertDescription } from "@/components/ui/alert"
 import {
   FileText,
   BrainCircuit,
@@ -45,52 +44,10 @@ import { toast } from "sonner"
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
 interface AICheckResult {
-  is_ai_generated: boolean | null
-  ai_confidence?: number
-  human_confidence?: number
-  confidence_score: number | null // backwards compatibility
-  indicators: Record<string, number> | null
+  is_ai_generated: boolean
+  confidence_score: number
+  indicators: Record<string, number>
   checked_at: string
-  routing_decision?: string
-  routing_reason?: string
-  note_comparison?: {
-    direct_copying: number
-    paraphrasing: number
-    original_thought: number
-    comparison_notes: string
-  }
-  reasoning?: string
-}
-
-interface StatisticalAnalysis {
-  sentence_variation: {
-    score: number
-    mean_length: number
-    std_deviation: number
-    description: string
-  }
-  lexical_diversity: {
-    score: number
-    unique_words: number
-    total_words: number
-    ratio: number
-    description: string
-  }
-  grade_level: {
-    score: number
-    flesch_kincaid: number
-    description: string
-  }
-  punctuation_patterns: {
-    score: number
-    comma_frequency: number
-    period_frequency: number
-    consistency_score: number
-    description: string
-  }
-  risk_score: number
-  risk_level: 'low' | 'medium' | 'high'
-  reasoning: string
 }
 
 interface Submission {
@@ -100,7 +57,6 @@ interface Submission {
   file_url: string
   submitted_at: string
   ai_check_result: AICheckResult | null
-  statistical_analysis: StatisticalAnalysis | null
   reviewed: boolean
   student_name: string
   student_email: string
@@ -117,27 +73,11 @@ export function LecturerSubmissions() {
 
   const [checkingId, setCheckingId] = useState<number | null>(null)
   const [reviewingId, setReviewingId] = useState<number | null>(null)
-  const [selectedSubmission, setSelectedSubmission] = useState<Submission | null>(null)
+  const [selectedResult, setSelectedResult] = useState<AICheckResult | null>(null)
   const [viewingDocument, setViewingDocument] = useState<Submission | null>(null)
   const [viewingStudent, setViewingStudent] = useState<string | null>(null)
 
   const submissions = data?.submissions || []
-
-  // Debug: Log submissions data when it changes
-  useEffect(() => {
-    if (submissions.length > 0) {
-      console.log('📊 Submissions data loaded:', {
-        count: submissions.length,
-        firstSubmission: {
-          id: submissions[0].id,
-          title: submissions[0].title,
-          hasAiCheck: !!submissions[0].ai_check_result,
-          hasStatisticalAnalysis: !!submissions[0].statistical_analysis,
-          statisticalAnalysisStructure: submissions[0].statistical_analysis ? Object.keys(submissions[0].statistical_analysis) : []
-        }
-      })
-    }
-  }, [submissions])
 
   // Calculate submission count per student
   const studentSubmissionCounts = useMemo(() => {
@@ -152,7 +92,6 @@ export function LecturerSubmissions() {
     setCheckingId(submissionId)
 
     try {
-      console.log('🔍 Starting AI check for submission:', submissionId)
       const res = await fetch("/api/submissions/check", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -160,18 +99,14 @@ export function LecturerSubmissions() {
       })
 
       const result = await res.json()
-      console.log('✅ AI check response:', result)
 
       if (!res.ok) {
         throw new Error(result.error || "AI check failed")
       }
 
       toast.success("AI check completed")
-      console.log('🔄 Refreshing submissions list...')
-      await mutate()
-      console.log('✨ Submissions refreshed')
+      mutate()
     } catch (error) {
-      console.error('❌ AI check error:', error)
       toast.error(error instanceof Error ? error.message : "AI check failed")
     } finally {
       setCheckingId(null)
@@ -264,9 +199,7 @@ export function LecturerSubmissions() {
                   <TableRow className="bg-muted/50 hover:bg-muted/50">
                     <TableHead className="font-semibold">Student</TableHead>
                     <TableHead className="font-semibold">Title</TableHead>
-                    <TableHead className="font-semibold">Type</TableHead>
                     <TableHead className="font-semibold">Date</TableHead>
-                    <TableHead className="font-semibold">Risk Level</TableHead>
                     <TableHead className="font-semibold">AI Check</TableHead>
                     <TableHead className="font-semibold">Status</TableHead>
                     <TableHead className="text-right font-semibold">Actions</TableHead>
@@ -313,53 +246,20 @@ export function LecturerSubmissions() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        {sub.statistical_analysis ? (
-                          <Badge
-                            variant="outline"
-                            className={
-                              sub.statistical_analysis.risk_level === 'low'
-                                ? 'border-green-300 bg-green-50 text-green-700'
-                                : sub.statistical_analysis.risk_level === 'medium'
-                                ? 'border-amber-300 bg-amber-50 text-amber-700'
-                                : 'border-red-300 bg-red-50 text-red-700'
-                            }
-                          >
-                            {sub.statistical_analysis.risk_level === 'low' && '✓ Low'}
-                            {sub.statistical_analysis.risk_level === 'medium' && '! Medium'}
-                            {sub.statistical_analysis.risk_level === 'high' && '⚠ High'}
-                            {' '}({sub.statistical_analysis.risk_score})
-                          </Badge>
-                        ) : (
-                          <span className="text-xs text-muted-foreground italic">Not analyzed</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
                         {sub.ai_check_result ? (
                           <button
-                            onClick={() => {
-                              console.log('Opening submission details:', {
-                                id: sub.id,
-                                ai_check_result: sub.ai_check_result,
-                                statistical_analysis: sub.statistical_analysis
-                              })
-                              setSelectedSubmission(sub)
-                            }}
+                            onClick={() => setSelectedResult(sub.ai_check_result)}
                             className="cursor-pointer transition-all hover:scale-105"
                           >
-                            {sub.ai_check_result.is_ai_generated === true ? (
+                            {sub.ai_check_result.is_ai_generated ? (
                               <Badge className="border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100">
                                 <AlertCircle className="mr-1 h-3 w-3" />
                                 AI {sub.ai_check_result.confidence_score}%
                               </Badge>
-                            ) : sub.ai_check_result.is_ai_generated === false ? (
+                            ) : (
                               <Badge className="border-green-200 bg-green-50 text-green-700 hover:bg-green-100">
                                 <CheckCircle2 className="mr-1 h-3 w-3" />
                                 Human {sub.ai_check_result.confidence_score}%
-                              </Badge>
-                            ) : (
-                              <Badge variant="outline" className="border-gray-300 bg-gray-50 text-gray-700 hover:bg-gray-100">
-                                <Clock className="mr-1 h-3 w-3" />
-                                Review Needed
                               </Badge>
                             )}
                           </button>
@@ -442,289 +342,65 @@ export function LecturerSubmissions() {
       </Card>
 
       {/* AI Check Result Detail Dialog */}
-      <Dialog open={!!selectedSubmission} onOpenChange={() => setSelectedSubmission(null)}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <Dialog open={!!selectedResult} onOpenChange={() => setSelectedResult(null)}>
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <BrainCircuit className="h-5 w-5 text-gold" />
-              Comprehensive Analysis Report
+              AI Content Analysis
             </DialogTitle>
           </DialogHeader>
-          {selectedSubmission && (
-            <div className="flex flex-col gap-6">
-              {/* Student Info */}
-              <div className="rounded-lg bg-muted/30 p-4 border border-border/50">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-navy text-primary-foreground font-bold">
-                    {selectedSubmission.student_name.charAt(0).toUpperCase()}
-                  </div>
-                  <div>
-                    <p className="font-semibold text-foreground">{selectedSubmission.student_name}</p>
-                    <p className="text-xs text-muted-foreground">{selectedSubmission.title}</p>
-                  </div>
-                </div>
+          {selectedResult && (
+            <div className="flex flex-col gap-5">
+              {/* Verdict */}
+              <div className="flex flex-col items-center gap-3 rounded-xl bg-gradient-to-br from-muted/50 to-muted/30 p-6 border border-border/50">
+                {selectedResult.is_ai_generated ? (
+                  <>
+                    <AlertCircle className="h-10 w-10 text-amber-500" />
+                    <span className="text-lg font-bold text-amber-600">
+                      AI-Generated Content Detected
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="h-10 w-10 text-green-500" />
+                    <span className="text-lg font-bold text-green-600">
+                      Original Content
+                    </span>
+                  </>
+                )}
+                <span className="text-3xl font-bold text-foreground">
+                  {selectedResult.confidence_score}%
+                </span>
+                <span className="text-xs text-muted-foreground">Confidence Score</span>
               </div>
 
-              {/* Statistical Analysis (FREE) */}
-              {selectedSubmission.statistical_analysis && selectedSubmission.statistical_analysis.risk_level && (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
-                      📊 Statistical Analysis (FREE)
-                    </h4>
-                    <Badge
-                      variant="outline"
-                      className={
-                        selectedSubmission.statistical_analysis.risk_level === 'low'
-                          ? 'border-green-300 bg-green-50 text-green-700'
-                          : selectedSubmission.statistical_analysis.risk_level === 'medium'
-                          ? 'border-amber-300 bg-amber-50 text-amber-700'
-                          : 'border-red-300 bg-red-50 text-red-700'
-                      }
-                    >
-                      {selectedSubmission.statistical_analysis.risk_level.toUpperCase()} RISK ({selectedSubmission.statistical_analysis.risk_score})
-                    </Badge>
-                  </div>
-
-                  <div className="rounded-lg border border-border/60 bg-muted/20 p-4 space-y-3">
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1">
-                        <p className="text-xs font-medium text-muted-foreground">Sentence Variation</p>
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm">{selectedSubmission.statistical_analysis.sentence_variation.description}</span>
-                          <span className="text-sm font-semibold">{selectedSubmission.statistical_analysis.sentence_variation.score}</span>
-                        </div>
-                        <Progress value={selectedSubmission.statistical_analysis.sentence_variation.score} className="h-1.5" />
-                      </div>
-                      
-                      <div className="space-y-1">
-                        <p className="text-xs font-medium text-muted-foreground">Lexical Diversity</p>
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm">{selectedSubmission.statistical_analysis.lexical_diversity.description}</span>
-                          <span className="text-sm font-semibold">{selectedSubmission.statistical_analysis.lexical_diversity.score}</span>
-                        </div>
-                        <Progress value={selectedSubmission.statistical_analysis.lexical_diversity.score} className="h-1.5" />
-                      </div>
-
-                      <div className="space-y-1">
-                        <p className="text-xs font-medium text-muted-foreground">Grade Level</p>
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm">{selectedSubmission.statistical_analysis.grade_level.description}</span>
-                          <span className="text-sm font-semibold">{selectedSubmission.statistical_analysis.grade_level.score}</span>
-                        </div>
-                        <Progress value={selectedSubmission.statistical_analysis.grade_level.score} className="h-1.5" />
-                      </div>
-
-                      <div className="space-y-1">
-                        <p className="text-xs font-medium text-muted-foreground">Punctuation Patterns</p>
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm">{selectedSubmission.statistical_analysis.punctuation_patterns.description}</span>
-                          <span className="text-sm font-semibold">{selectedSubmission.statistical_analysis.punctuation_patterns.score}</span>
-                        </div>
-                        <Progress value={selectedSubmission.statistical_analysis.punctuation_patterns.score} className="h-1.5" />
-                      </div>
+              {/* Indicators */}
+              <div className="flex flex-col gap-3">
+                <h4 className="text-sm font-semibold text-foreground">Detection Indicators</h4>
+                {Object.entries(selectedResult.indicators).map(([key, value]) => (
+                  <div key={key} className="flex flex-col gap-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-foreground">
+                        {indicatorLabels[key] || key}
+                      </span>
+                      <span
+                        className={`text-sm font-semibold ${
+                          (value as number) > 60
+                            ? "text-amber-600"
+                            : "text-green-600"
+                        }`}
+                      >
+                        {value as number}%
+                      </span>
                     </div>
-
-                    <Alert className="bg-blue-50 border-blue-200">
-                      <AlertCircle className="h-4 w-4 text-blue-600" />
-                      <AlertDescription className="text-sm text-blue-800">
-                        {selectedSubmission.statistical_analysis.reasoning}
-                      </AlertDescription>
-                    </Alert>
+                    <Progress value={value as number} className="h-1.5" />
                   </div>
-                </div>
-              )}
-
-              {/* AI Check Results */}
-              {selectedSubmission.ai_check_result && (
-                <div className="space-y-3">
-                  <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
-                    🤖 AI Detection Analysis
-                    <Badge variant="outline" className="text-xs bg-purple-50 border-purple-200 text-purple-700">
-                      Claude AI
-                    </Badge>
-                  </h4>
-
-                  {/* Verdict */}
-                  <div className="flex flex-col items-center gap-3 rounded-xl bg-gradient-to-br from-muted/50 to-muted/30 p-6 border border-border/50">
-                    {selectedSubmission.ai_check_result.is_ai_generated === true ? (
-                      <>
-                        <AlertCircle className="h-10 w-10 text-amber-500" />
-                        <span className="text-lg font-bold text-amber-600">
-                          AI-Generated Content Detected
-                        </span>
-                      </>
-                    ) : selectedSubmission.ai_check_result.is_ai_generated === false ? (
-                      <>
-                        <CheckCircle2 className="h-10 w-10 text-green-500" />
-                        <span className="text-lg font-bold text-green-600">
-                          Human-Written Content
-                        </span>
-                      </>
-                    ) : (
-                      <>
-                        <Clock className="h-10 w-10 text-gray-500" />
-                        <span className="text-lg font-bold text-gray-600">
-                          Manual Review Required
-                        </span>
-                      </>
-                    )}
-                    
-                    {/* Dual Percentage Display */}
-                    {selectedSubmission.ai_check_result.ai_confidence != null && selectedSubmission.ai_check_result.human_confidence != null ? (
-                      <div className="flex gap-6 items-center justify-center w-full">
-                        <div className="flex flex-col items-center">
-                          <span className="text-3xl font-bold text-amber-600">
-                            {Math.round(selectedSubmission.ai_check_result.ai_confidence)}%
-                          </span>
-                          <span className="text-xs text-muted-foreground">AI-Generated</span>
-                        </div>
-                        <div className="h-12 w-px bg-border" />
-                        <div className="flex flex-col items-center">
-                          <span className="text-3xl font-bold text-green-600">
-                            {Math.round(selectedSubmission.ai_check_result.human_confidence)}%
-                          </span>
-                          <span className="text-xs text-muted-foreground">Human-Written</span>
-                        </div>
-                      </div>
-                    ) : (
-                      <>
-                        <span className="text-3xl font-bold text-foreground">
-                          {selectedSubmission.ai_check_result.confidence_score != null 
-                            ? `${Math.round(selectedSubmission.ai_check_result.confidence_score)}%`
-                            : selectedSubmission.statistical_analysis?.risk_score != null
-                            ? `${Math.round(selectedSubmission.statistical_analysis.risk_score)}%`
-                            : 'N/A'
-                          }
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          AI Confidence Score
-                        </span>
-                      </>
-                    )}
-                  </div>
-
-                  {/* Claude Indicators */}
-                  {selectedSubmission.ai_check_result.indicators && (
-                    <div className="flex flex-col gap-3 rounded-lg border border-border/60 bg-muted/20 p-4">
-                      <h5 className="text-sm font-semibold text-foreground">AI Detection Indicators</h5>
-                      {Object.entries(selectedSubmission.ai_check_result.indicators).map(([key, value]) => (
-                        value !== null && (
-                          <div key={key} className="flex flex-col gap-1">
-                            <div className="flex items-center justify-between">
-                              <span className="text-sm text-foreground">
-                                {indicatorLabels[key] || key}
-                              </span>
-                              <span
-                                className={`text-sm font-semibold ${
-                                  (value as number) > 60
-                                    ? "text-amber-600"
-                                    : "text-green-600"
-                                }`}
-                              >
-                                {value as number}%
-                              </span>
-                            </div>
-                            <Progress value={value as number} className="h-1.5" />
-                          </div>
-                        )
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Note Comparison */}
-                  {selectedSubmission.ai_check_result.note_comparison && (
-                    <div className="rounded-lg border-2 border-gold/30 bg-gold/5 p-4 space-y-3">
-                      <h5 className="text-sm font-semibold text-foreground flex items-center gap-2">
-                        📚 Reference Material Comparison
-                      </h5>
-                      
-                      <div className="grid grid-cols-3 gap-3">
-                        <div className="space-y-1">
-                          <p className="text-xs font-medium text-muted-foreground">Direct Copying</p>
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm">
-                              {selectedSubmission.ai_check_result.note_comparison.direct_copying > 70 
-                                ? 'High' 
-                                : selectedSubmission.ai_check_result.note_comparison.direct_copying > 40 
-                                ? 'Moderate' 
-                                : 'Low'}
-                            </span>
-                            <span className="text-sm font-semibold text-red-600">
-                              {selectedSubmission.ai_check_result.note_comparison.direct_copying}%
-                            </span>
-                          </div>
-                          <Progress 
-                            value={selectedSubmission.ai_check_result.note_comparison.direct_copying} 
-                            className="h-1.5"
-                          />
-                        </div>
-
-                        <div className="space-y-1">
-                          <p className="text-xs font-medium text-muted-foreground">Paraphrasing</p>
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm">
-                              {selectedSubmission.ai_check_result.note_comparison.paraphrasing > 70 
-                                ? 'High' 
-                                : selectedSubmission.ai_check_result.note_comparison.paraphrasing > 40 
-                                ? 'Moderate' 
-                                : 'Low'}
-                            </span>
-                            <span className="text-sm font-semibold text-amber-600">
-                              {selectedSubmission.ai_check_result.note_comparison.paraphrasing}%
-                            </span>
-                          </div>
-                          <Progress 
-                            value={selectedSubmission.ai_check_result.note_comparison.paraphrasing} 
-                            className="h-1.5"
-                          />
-                        </div>
-
-                        <div className="space-y-1">
-                          <p className="text-xs font-medium text-muted-foreground">Original Thought</p>
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm">
-                              {selectedSubmission.ai_check_result.note_comparison.original_thought > 70 
-                                ? 'High' 
-                                : selectedSubmission.ai_check_result.note_comparison.original_thought > 40 
-                                ? 'Moderate' 
-                                : 'Low'}
-                            </span>
-                            <span className="text-sm font-semibold text-green-600">
-                              {selectedSubmission.ai_check_result.note_comparison.original_thought}%
-                            </span>
-                          </div>
-                          <Progress 
-                            value={selectedSubmission.ai_check_result.note_comparison.original_thought} 
-                            className="h-1.5"
-                          />
-                        </div>
-                      </div>
-
-                      <Alert className="bg-gold/10 border-gold/30">
-                        <AlertCircle className="h-4 w-4 text-gold" />
-                        <AlertDescription className="text-sm text-foreground">
-                          {selectedSubmission.ai_check_result.note_comparison.comparison_notes}
-                        </AlertDescription>
-                      </Alert>
-                    </div>
-                  )}
-
-                  {selectedSubmission.ai_check_result.reasoning && (
-                    <Alert>
-                      <AlertCircle className="h-4 w-4" />
-                      <AlertDescription className="text-sm">
-                        {selectedSubmission.ai_check_result.reasoning}
-                      </AlertDescription>
-                    </Alert>
-                  )}
-                </div>
-              )}
+                ))}
+              </div>
 
               <p className="text-center text-xs text-muted-foreground">
-                {selectedSubmission.ai_check_result?.checked_at && 
-                  `Analyzed: ${new Date(selectedSubmission.ai_check_result.checked_at).toLocaleString()}`
-                }
+                Checked: {new Date(selectedResult.checked_at).toLocaleString()}
               </p>
             </div>
           )}
