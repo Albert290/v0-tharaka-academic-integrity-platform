@@ -199,6 +199,7 @@ export function LecturerSubmissions() {
                   <TableRow className="bg-muted/50 hover:bg-muted/50">
                     <TableHead className="font-semibold">Student</TableHead>
                     <TableHead className="font-semibold">Title</TableHead>
+                    <TableHead className="font-semibold">Type</TableHead>
                     <TableHead className="font-semibold">Date</TableHead>
                     <TableHead className="font-semibold">AI Check</TableHead>
                     <TableHead className="font-semibold">Status</TableHead>
