@@ -64,6 +64,38 @@ interface Submission {
   phone_number?: string
 }
 
+// Helper function to get friendly file type names
+function getFileTypeName(mimeType: string): string {
+  const mimeToName: Record<string, string> = {
+    "application/pdf": "PDF",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "DOCX",
+    "application/msword": "DOC",
+    "text/plain": "TXT",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "XLSX",
+    "application/vnd.ms-excel": "XLS",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation": "PPTX",
+    "application/vnd.ms-powerpoint": "PPT",
+  }
+  
+  return mimeToName[mimeType] || mimeType.split("/").pop()?.toUpperCase() || "FILE"
+}
+
+// Helper function to get file extension from MIME type
+function getFileExtension(mimeType: string): string {
+  const mimeToExt: Record<string, string> = {
+    "application/pdf": "pdf",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
+    "application/msword": "doc",
+    "text/plain": "txt",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
+    "application/vnd.ms-excel": "xls",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation": "pptx",
+    "application/vnd.ms-powerpoint": "ppt",
+  }
+  
+  return mimeToExt[mimeType] || mimeType.split("/").pop() || "file"
+}
+
 export function LecturerSubmissions() {
   const { data, isLoading, mutate } = useSWR<{ submissions: Submission[] }>(
     "/api/submissions?role=lecturer",
@@ -141,9 +173,7 @@ export function LecturerSubmissions() {
       // Create a download link from the base64 data
       const link = document.createElement("a")
       link.href = submission.file_url
-      link.download = `${submission.title.replace(/[^a-z0-9]/gi, "_")}.${
-        submission.file_type?.split("/").pop() || "file"
-      }`
+      link.download = `${submission.title.replace(/[^a-z0-9]/gi, "_")}.${getFileExtension(submission.file_type)}`
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
@@ -237,7 +267,7 @@ export function LecturerSubmissions() {
                       <TableCell>
                         <Badge variant="secondary" className="text-xs bg-gold/10 text-gold-dark border-gold/20">
                           <FileText className="mr-1 h-3 w-3" />
-                          {sub.file_type?.split("/").pop()?.toUpperCase() || "FILE"}
+                          {getFileTypeName(sub.file_type)}
                         </Badge>
                       </TableCell>
                       <TableCell>
@@ -466,7 +496,7 @@ export function LecturerSubmissions() {
                   <div>
                     <p className="text-xs text-muted-foreground">File Type</p>
                     <p className="text-sm font-medium text-foreground">
-                      {viewingDocument.file_type?.split("/").pop()?.toUpperCase() || "FILE"}
+                      {getFileTypeName(viewingDocument.file_type)}
                     </p>
                   </div>
                 </div>
