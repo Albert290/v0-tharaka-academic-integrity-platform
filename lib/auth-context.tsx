@@ -7,7 +7,7 @@ import type { UserPayload } from "@/lib/auth"
 interface AuthContextType {
   user: UserPayload | null
   isLoading: boolean
-  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string; user?: UserPayload }>
   register: (
     name: string,
     email: string,
@@ -15,7 +15,7 @@ interface AuthContextType {
     role: string,
     registrationNumber?: string,
     phoneNumber?: string
-  ) => Promise<{ success: boolean; error?: string }>
+  ) => Promise<{ success: boolean; error?: string; user?: UserPayload }>
   logout: () => Promise<void>
   refresh: () => Promise<void>
 }
@@ -46,7 +46,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const json = await res.json()
       if (!res.ok) return { success: false, error: json.error }
       await mutate()
-      return { success: true }
+      return { success: true, user: json.user }
     },
     [mutate]
   )
@@ -61,7 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const json = await res.json()
       if (!res.ok) return { success: false, error: json.error }
       await mutate()
-      return { success: true }
+      return { success: true, user: json.user }
     },
     [mutate]
   )

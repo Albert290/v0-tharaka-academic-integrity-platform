@@ -62,10 +62,12 @@ function RegisterForm() {
 
     const result = await register(name, email, password, role, registrationNumber, phoneNumber)
 
-    if (result.success) {
+    if (result.success && result.user) {
       toast.success("Registration successful!")
+      // Redirect to role-specific dashboard
+      const dashboardPath = result.user.role === "lecturer" ? "/dashboard/lecturer" : "/dashboard/student"
       setTimeout(() => {
-        router.push(role === "lecturer" ? "/dashboard/lecturer" : "/dashboard/student")
+        router.push(dashboardPath)
         router.refresh()
       }, 100)
     } else {

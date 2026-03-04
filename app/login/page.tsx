@@ -26,11 +26,12 @@ export default function LoginPage() {
 
     const result = await login(email, password)
 
-    if (result.success) {
+    if (result.success && result.user) {
       toast.success("Login successful!")
-      // Small delay for session to propagate
+      // Redirect to role-specific dashboard
+      const dashboardPath = result.user.role === "lecturer" ? "/dashboard/lecturer" : "/dashboard/student"
       setTimeout(() => {
-        router.push("/")
+        router.push(dashboardPath)
         router.refresh()
       }, 100)
     } else {

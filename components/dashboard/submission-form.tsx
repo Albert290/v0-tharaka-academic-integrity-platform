@@ -13,8 +13,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Upload, Loader2, FileText } from "lucide-react"
+import { Upload, Loader2, FileText, Info } from "lucide-react"
 import { toast } from "sonner"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
@@ -43,6 +44,14 @@ export function SubmissionForm() {
     setLoading(true)
 
     try {
+      console.log('📤 Submitting file:', {
+        title,
+        lecturerId,
+        fileName: file.name,
+        fileSize: `${(file.size / 1024).toFixed(2)} KB`,
+        fileType: file.type
+      })
+
       const formData = new FormData()
       formData.append("title", title)
       formData.append("lecturer_id", lecturerId)
@@ -57,17 +66,24 @@ export function SubmissionForm() {
       const data = await res.json()
 
       if (!res.ok) {
-        throw new Error(data.error || "Submission failed")
+        console.error('❌ Submission failed:', data)
+        throw new Error(data.details || data.error || "Submission failed")
       }
 
-      toast.success("CAT submitted successfully!")
+      console.log('✅ Submission successful:', data)
+      toast.success("CAT submitted successfully! Lecturer can now review it.")
       setTitle("")
       setLecturerId("")
       setFile(null)
 
+      // Reset file input
+      const fileInput = document.getElementById("file") as HTMLInputElement
+      if (fileInput) fileInput.value = ""
+
       // Refresh submission history
       mutate("/api/submissions?role=student")
     } catch (error) {
+      console.error('❌ Submission error:', error)
       toast.error(error instanceof Error ? error.message : "Submission failed")
     } finally {
       setLoading(false)
@@ -77,31 +93,34 @@ export function SubmissionForm() {
   const lecturers = lecturerData?.lecturers || []
 
   return (
-    <Card className="border-border/60">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-lg text-card-foreground">
-          <Upload className="h-5 w-5 text-gold" />
+    <Card className="border-border/60 shadow-lg hover:shadow-xl transition-shadow duration-300">
+      <CardHeader className="bg-gradient-to-r from-navy/5 to-gold/5">
+        <CardTitle className="flex items-center gap-2 text-base sm:text-lg text-card-foreground">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gold/20">
+            <Upload className="h-5 w-5 text-gold-dark" />
+          </div>
           Submit CAT
         </CardTitle>
-        <CardDescription>Upload your Continuous Assessment Test</CardDescription>
+        <CardDescription className="text-xs sm:text-sm">Upload your Continuous Assessment Test</CardDescription>
       </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <CardContent className="pt-6">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4 sm:gap-5">
           <div className="flex flex-col gap-2">
-            <Label htmlFor="title">Submission Title</Label>
+            <Label htmlFor="title" className="text-sm font-semibold">Submission Title</Label>
             <Input
               id="title"
               placeholder="e.g., CAT 1 - Data Structures"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               required
+              className="border-border/60 focus:border-gold focus:ring-gold/20"
             />
           </div>
 
           <div className="flex flex-col gap-2">
-            <Label htmlFor="lecturer">Select Lecturer</Label>
+            <Label htmlFor="lecturer" className="text-sm font-semibold">Select Lecturer</Label>
             <Select value={lecturerId} onValueChange={setLecturerId}>
-              <SelectTrigger id="lecturer">
+              <SelectTrigger id="lecturer" className="border-border/60 focus:border-gold focus:ring-gold/20">
                 <SelectValue placeholder="Choose a lecturer" />
               </SelectTrigger>
               <SelectContent>
@@ -121,10 +140,12 @@ export function SubmissionForm() {
           </div>
 
           <div className="flex flex-col gap-2">
-            <Label htmlFor="file">Upload File</Label>
+            <Label htmlFor="file" className="text-sm font-semibold">Upload File</Label>
             {file ? (
-              <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 p-3">
-                <FileText className="h-5 w-5 text-gold" />
+              <div className="flex items-center gap-3 rounded-lg border border-gold/30 bg-gradient-to-r from-gold/5 to-navy/5 p-3 shadow-sm">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gold/20 shrink-0">
+                  <FileText className="h-5 w-5 text-gold-dark" />
+                </div>
                 <div className="flex-1 min-w-0">
                   <p className="truncate text-sm font-medium text-foreground">{file.name}</p>
                   <p className="text-xs text-muted-foreground">
@@ -136,7 +157,7 @@ export function SubmissionForm() {
                   variant="ghost"
                   size="sm"
                   onClick={() => setFile(null)}
-                  className="h-7 text-xs text-muted-foreground"
+                  className="h-8 text-xs text-muted-foreground hover:text-foreground"
                 >
                   Remove
                 </Button>
@@ -148,17 +169,27 @@ export function SubmissionForm() {
                 accept=".pdf,.doc,.docx,.txt,.mp4,.mov"
                 onChange={(e) => setFile(e.target.files?.[0] || null)}
                 required
+                className="border-border/60 focus:border-gold focus:ring-gold/20 file:mr-4 file:rounded-md file:border-0 file:bg-navy file:px-4 file:py-2 file:text-sm file:font-medium file:text-primary-foreground hover:file:bg-navy-light file:transition-colors"
               />
             )}
             <p className="text-xs text-muted-foreground">
-              Accepted: PDF, DOC, DOCX, TXT, MP4, MOV
+              Accepted: PDF, DOC, DOCX, TXT, MP4, MOV (Max 10MB)
             </p>
           </div>
+
+          <Alert className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200/60 shadow-sm">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-100">
+              <Info className="h-4 w-4 text-blue-600" />
+            </div>
+            <AlertDescription className="text-xs sm:text-sm text-blue-900 ml-3">
+              <strong className="font-semibold">Note:</strong> AI checking is NOT done during submission. After you submit, your lecturer will manually click "AI Check" to analyze your work.
+            </AlertDescription>
+          </Alert>
 
           <Button
             type="submit"
             disabled={loading}
-            className="mt-2 bg-navy text-primary-foreground hover:bg-navy-light"
+            className="mt-2 bg-gradient-to-r from-navy to-navy-light text-primary-foreground hover:from-navy-light hover:to-navy shadow-md hover:shadow-lg transition-all duration-200"
           >
             {loading ? (
               <>
@@ -166,7 +197,10 @@ export function SubmissionForm() {
                 Submitting...
               </>
             ) : (
-              "Submit CAT"
+              <>
+                <Upload className="mr-2 h-4 w-4" />
+                Submit CAT
+              </>
             )}
           </Button>
         </form>
